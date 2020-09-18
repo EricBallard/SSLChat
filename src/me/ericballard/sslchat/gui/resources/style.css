@@ -1,0 +1,35 @@
+.list-cell {
+    -fx-background-color: rgba(50, 50, 50, 0.5);
+}
+.list-view {
+    -fx-background-color: rgba(50, 50, 50, 0.5);
+}
+.text-field, .text-area .content {
+    -fx-background-color: #303030;
+    -fx-border-color: #252525;
+    -fx-text-fill: #757575;
+    -fx-prompt-text-fill: #505050;
+}
+.text-area {
+    -fx-text-fill: #757575;
+    -fx-prompt-text-fill: #505050;
+}
+.text-area *.text {
+    -fx-text-alignment: center;
+}
+.text-area:focused {
+    -fx-faint-focus-color: #252525;
+}
+
+.button{
+    -fx-background-color: #505050;
+    -fx-border-color: #252525;
+    -fx-background-radius: 1.0px;
+    -fx-text-fill: #252525;
+}
+.button:hover{
+    -fx-background-color: #252525;
+    -fx-border-color: #757575;
+    -fx-background-radius: 1.0px;
+     -fx-text-fill: #757575;
+}
