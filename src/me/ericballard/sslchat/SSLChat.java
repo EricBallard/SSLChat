@@ -13,12 +13,19 @@ import java.io.IOException;
 
 public class SSLChat extends Application {
 
+    // Controller logic for interface
     Controller controller;
 
+    // User-defined name
+    public String username;
+
+    public boolean muted;
+
     @Override
-    public void start(Stage stage)  {
+    public void start(Stage stage) {
+        // Load interface from xml and register controller
         FXMLLoader loader = new FXMLLoader(getClass().getResource("gui/resources/Interface.fxml"));
-        loader.setController((controller = new Controller()));
+        loader.setController((controller = new Controller(this)));
         Parent root;
 
         try {
@@ -29,7 +36,7 @@ public class SSLChat extends Application {
         }
 
         // Configure window functionality
-        stage.setScene(new Scene(root, 600, 400,  Color.TRANSPARENT));
+        stage.setScene(new Scene(root, 600, 400, Color.TRANSPARENT));
         stage.initStyle(StageStyle.TRANSPARENT);
         stage.show();
     }
