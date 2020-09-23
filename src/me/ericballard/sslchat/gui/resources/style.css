@@ -31,21 +31,15 @@
     -fx-background-color: #252525;
     -fx-border-color: #757575;
     -fx-background-radius: 1.0px;
-     -fx-text-fill: #757575;
+    -fx-text-fill: #757575;
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+.color-picker {
+    -fx-background-color: #303030;
+    -fx-border-color: #252525;
+    -fx-text-fill: #757575;
+}
+.color-picker .color-picker-label {
+    -fx-text-fill: #757575;
+}
 
 

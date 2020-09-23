@@ -2,15 +2,17 @@ package me.ericballard.sslchat.gui;
 
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextArea;
-import javafx.scene.control.TextField;
+import javafx.scene.control.*;
+import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
 import javafx.scene.shape.Circle;
+import javafx.stage.Stage;
 import me.ericballard.sslchat.SSLChat;
+import me.ericballard.sslchat.network.client.Client;
+import me.ericballard.sslchat.network.server.Server;
 
 import java.net.URL;
 import java.util.ResourceBundle;
@@ -29,8 +31,14 @@ public class Controller implements Initializable {
     @FXML // Message draft
     TextArea textArea;
 
+    @FXML // User-name color
+    ColorPicker colorPicker;
+
     @FXML // Server status
     Circle circle;
+
+    @FXML // Title bar buttons
+    Button minBtn, exitBtn;
 
     @FXML // User controls
     ImageView mediaImg, soundImg, connectImg;
@@ -49,6 +57,16 @@ public class Controller implements Initializable {
         anchorPane.setClip(new Circle(circle.getLayoutX(), circle.getLayoutY(), circle.getRadius()));
         textArea.setStyle("-fx-focus-color: transparent; -fx-text-box-border: transparent;");
 
+
+        /*
+            Title bar functionality
+         */
+
+        //Exit application
+        exitBtn.setOnAction(e -> ((Stage) anchorPane.getScene().getWindow()).close());
+
+        // Minimize window
+        minBtn.setOnAction(e -> ((Stage) anchorPane.getScene().getWindow()).setIconified(true));
         /*
              Message and username functionality
          */
@@ -82,7 +100,15 @@ public class Controller implements Initializable {
          */
 
         // Toggle message notification
-        soundImg.setOnMouseClicked(e -> app.muted = (!app.muted));
+        soundImg.setOnMouseClicked(e -> {
+            if (app.muted = (!app.muted)) {
+                // Muted
+                soundImg.setImage(new Image("gui/resources/mute.png"));
+            } else {
+                // Un-muted
+                soundImg.setImage(new Image("gui/resources/sound.png"));
+            }
+        });
 
         // Send Image
         mediaImg.setOnMouseClicked(e -> {
@@ -91,6 +117,13 @@ public class Controller implements Initializable {
 
         // Open server panel
 
+        connectImg.setOnMouseClicked(e -> {
+            new Server(app).initialize();
+        });
+
+        mediaImg.setOnMouseClicked(e -> {
+            new Client(app).initialize();
+        });
     }
 }
 
