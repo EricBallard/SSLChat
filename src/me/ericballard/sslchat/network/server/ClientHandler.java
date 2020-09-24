@@ -27,8 +27,9 @@ public class ClientHandler extends Thread {
             String clientMsg = reader.readLine();
 
             // Validate authorization
-            if (clientMsg == null || !clientMsg.contains("CONNECT:")) {
+            if (clientMsg == null || !clientMsg.startsWith("CONNECT:")) {
                 System.out.println("Invalid connection request: " + clientMsg);
+                writer.println("CONNECT-DENIED:Invalid message.");
                 socket.close();
                 return;
             }
@@ -39,33 +40,36 @@ public class ClientHandler extends Thread {
             // Check if username is reserved by other client
             if (server.connectedClients.contains(name)) {
                 System.out.println("Unable to connect client, username is in use: " + clientMsg);
-                writer.println("CONNECT-DENIED:Username is in use!");
+                writer.println("CONNECT-DENIED:Username is in use.");
                 socket.close();
                 return;
             }
 
             // Username is available, cache name
             server.connectedClients.add(name);
+            writer.println("CONNECT-ACCEPTED:Registered username!");
 
-            // Client is connected and registered
+            // Client is connected and authorization
+            main:
             while (true) {
-                clientMsg= reader.readLine();
+                clientMsg = reader.readLine();
 
                 if (clientMsg == null || !clientMsg.contains(":")) {
                     System.out.println("Invalid Client Message: " + clientMsg);
                     break;
                 }
-                // Disconnect client from server
-                if (clientMsg.equals("DISCONNECT")) {
-                    System.out.println("Client disconnected: " + socket.getInetAddress());
-                    break;
+
+                switch (clientMsg.split(":")[0]) {
+                    // Disconnect client from server
+                    case "DISCONNECT":
+                        System.out.println("Client disconnected: " + socket.getInetAddress());
+                        server.connectedClients.remove(name);
+                        break main;
+                    case "USER-COUNT":
+                        int users = server.connectedClients.size();
+                        writer.println("USER-COUNT:" + users);
+                        break;
                 }
-
-                // Echo msg
-                clientMsg = "ECHO: " + clientMsg;
-
-                System.out.println(clientMsg);
-                writer.println(clientMsg);
             }
 
             socket.close();

@@ -22,6 +22,9 @@ public class Server extends Thread {
     // Connected users to server
     ArrayList<String> connectedClients = new ArrayList<>();
 
+    // Clients currently drafting a message
+    ArrayList<String> typingCients = new ArrayList<>();
+
     public Server(SSLChat app) {
         this.app = app;
     }
@@ -82,7 +85,6 @@ public class Server extends Thread {
 
             // Direct system to keystore
             // (https://docs.oracle.com/cd/E29585_01/PlatformServices.61x/security/src/csec_ssl_jsp_start_server.html)
-            //TODO store file if needed
             System.setProperty("javax.net.ssl.keyStore", "C:\\Users\\Home\\sslchatstore.store");
             System.setProperty("javax.net.ssl.keyStorePassword", "password");
 

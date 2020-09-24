@@ -21,6 +21,8 @@ public class SSLChat extends Application {
 
     public boolean muted;
 
+    public int onlineUsers;
+
     @Override
     public void start(Stage stage) {
         // Load interface from xml and register controller

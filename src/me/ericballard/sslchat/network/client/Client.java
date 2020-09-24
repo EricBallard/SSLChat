@@ -38,16 +38,32 @@ public class Client extends Thread {
                     break;
                 }
 
-                switch (serverReponse.split(":")[0]) {
-                    case "CONNECT-ACCEPTED":
-                        // Client has successfully connected to server and registered name
-                        break;
+                String[] data = serverReponse.split(":");
+
+                switch (data[0]) {
                     case "CONNECT-DENIED":
                         // Client's defined username is already taken
                         // Inform server client is disconnecting
-                        writer.println("DISCONNECT");
+                        writer.println("DISCONNECT:");
                         break main;
-                    case "":
+                    case "CONNECT-ACCEPTED":
+                        // Client has successfully connected to server and registered name
+
+                        // Request number of users connected to server
+                        writer.println("REQUEST:USER-COUNT");
+                        break;
+                    case "USER-COUNT":
+                        // Client has requested number of connected users
+                        String connectedClients = data[1];
+                        int users = 0;
+
+                        try {
+                            users = Integer.parseInt(connectedClients);
+                        } catch (NumberFormatException ne) {
+                            System.out.println("Failed to retrieve number of connected clients on server: " + serverReponse);
+                        }
+
+                        app.onlineUsers = users;
                         break;
                 }
             }

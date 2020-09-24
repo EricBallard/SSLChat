@@ -37,9 +37,8 @@
     -fx-background-color: #303030;
     -fx-border-color: #252525;
     -fx-text-fill: #757575;
+    -fx-background: #252525;
 }
 .color-picker .color-picker-label {
     -fx-text-fill: #757575;
 }
-
-
