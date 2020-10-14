@@ -32,7 +32,7 @@
                </stops>
             </RadialGradient>
          </fill></Circle>
-      <GridPane fx:id="gridPane">
+      <GridPane>
         <columnConstraints>
           <ColumnConstraints halignment="CENTER" hgrow="ALWAYS" prefWidth="80.0" />
             <ColumnConstraints halignment="CENTER" hgrow="ALWAYS" prefWidth="20.0" />
@@ -49,7 +49,7 @@
             <RowConstraints prefHeight="100.0" valignment="CENTER" vgrow="ALWAYS" />
         </rowConstraints>
          <children>
-            <GridPane style="-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #252525, #505050);" GridPane.columnIndex="2" GridPane.rowIndex="1">
+            <GridPane fx:id="titleGrid" style="-fx-background-color: rgba(50, 50, 50, 0.75);" GridPane.columnIndex="2" GridPane.rowIndex="1">
               <columnConstraints>
                 <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" minWidth="100.0" />
                   <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" prefWidth="50.0" />
@@ -80,7 +80,7 @@
                            </stops>
                         </RadialGradient>
                      </fill></Circle>
-                  <Text fill="#757575" strokeType="OUTSIDE" strokeWidth="0.0" text="0" textAlignment="CENTER" GridPane.columnIndex="2">
+                  <Text fx:id="onlineTxt" fill="#757575" strokeType="OUTSIDE" strokeWidth="0.0" text="0" textAlignment="CENTER" GridPane.columnIndex="2">
                      <font>
                         <Font name="System Bold" size="22.0" />
                      </font>
@@ -96,7 +96,7 @@
                 <RowConstraints prefHeight="30.0" vgrow="SOMETIMES" />
               </rowConstraints>
                <children>
-                  <Label text="2 people are typing..." textFill="#757575">
+                  <Label fx:id="typingLbl" textFill="#757575">
                      <font>
                         <Font name="System Italic" size="16.0" />
                      </font>
@@ -128,7 +128,7 @@
                   </GridPane>
                </children>
             </GridPane>
-            <GridPane opacity="0.75" style="-fx-background-color: rgba(50, 50, 50, 1.0);" GridPane.columnIndex="2" GridPane.rowIndex="5">
+            <GridPane fx:id="controlGrid" style="-fx-background-color: rgba(50, 50, 50, 0.75);" GridPane.columnIndex="2" GridPane.rowIndex="5">
               <columnConstraints>
                 <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" prefWidth="100.0" />
                   <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" prefWidth="100.0" />

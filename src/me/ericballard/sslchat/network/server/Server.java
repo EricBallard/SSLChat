@@ -1,5 +1,6 @@
 package me.ericballard.sslchat.network.server;
 
+import javafx.application.Platform;
 import me.ericballard.sslchat.SSLChat;
 
 import javax.net.ServerSocketFactory;
@@ -10,20 +11,21 @@ import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.net.Socket;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 public class Server extends Thread {
 
-    boolean started;
+    public boolean started;
 
     SSLChat app;
     SSLSocket socket;
     SSLServerSocket serverSocket;
 
     // Connected users to server
-    ArrayList<String> connectedClients = new ArrayList<>();
+    public ArrayList<String> connectedClients = new ArrayList<>();
 
-    // Clients currently drafting a message
-    ArrayList<String> typingCients = new ArrayList<>();
+    // Data - Clients to send to
+    public HashMap<String, ArrayList<String>> dataToSend = new HashMap<>();
 
     public Server(SSLChat app) {
         this.app = app;
@@ -32,7 +34,10 @@ public class Server extends Thread {
     @Override
     public void run() {
         started = true;
-        System.out.println("Opened Secured Server on port 25565!");
+        connectedClients.add(app.username);
+
+        System.out.println("Opened Secured Server on port 25565 | " + app.username);
+        Platform.runLater(() -> app.controller.onlineTxt.setText(String.valueOf(connectedClients.size())));
 
         while (!isInterrupted()) {
             try {

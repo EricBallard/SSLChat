@@ -8,13 +8,16 @@ import javafx.scene.image.ImageView;
 import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
+import javafx.scene.layout.GridPane;
 import javafx.scene.shape.Circle;
+import javafx.scene.text.Text;
 import javafx.stage.Stage;
 import me.ericballard.sslchat.SSLChat;
 import me.ericballard.sslchat.network.client.Client;
 import me.ericballard.sslchat.network.server.Server;
 
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.ResourceBundle;
 
 public class Controller implements Initializable {
@@ -31,8 +34,14 @@ public class Controller implements Initializable {
     @FXML // Message draft
     TextArea textArea;
 
+    @FXML // Displays # of online users in connected server
+    public Text onlineTxt;
+
     @FXML // User-name color
     ColorPicker colorPicker;
+
+    @FXML // Inform user # of typing clients
+    public Label typingLbl;
 
     @FXML // Server status
     Circle circle;
@@ -43,12 +52,20 @@ public class Controller implements Initializable {
     @FXML // User controls
     ImageView mediaImg, soundImg, connectImg;
 
+    @FXML
+    GridPane controlGrid, titleGrid;
+
     // Instance of main
     SSLChat app;
+
+    // Client is drafting message
+    public boolean typing;
 
     public Controller(SSLChat app) {
         this.app = app;
     }
+
+    double xOffset = -1, yOffset = -1;
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
@@ -57,6 +74,27 @@ public class Controller implements Initializable {
         anchorPane.setClip(new Circle(circle.getLayoutX(), circle.getLayoutY(), circle.getRadius()));
         textArea.setStyle("-fx-focus-color: transparent; -fx-text-box-border: transparent;");
 
+        /*
+             Window functionality
+         */
+
+        anchorPane.setOnMousePressed(e -> {
+            xOffset = e.getSceneX();
+            yOffset = e.getSceneY();
+        });
+
+        anchorPane.setOnMouseDragged(e -> {
+            Stage stage = (Stage) anchorPane.getScene().getWindow();
+            stage.setX(e.getScreenX() - xOffset);
+            stage.setY(e.getScreenY() - yOffset);
+            e.consume();
+        });
+
+        controlGrid.setOnMouseEntered(e -> controlGrid.setStyle("-fx-background-color:  rgba(50, 50, 50, 0.85);"));
+        controlGrid.setOnMouseExited(e -> controlGrid.setStyle("-fx-background-color:  rgba(50, 50, 50, 0.75);"));
+
+        titleGrid.setOnMouseEntered(e -> titleGrid.setStyle("-fx-background-color:  rgba(50, 50, 50, 0.85);"));
+        titleGrid.setOnMouseExited(e -> titleGrid.setStyle("-fx-background-color:  rgba(50, 50, 50, 0.75);"));
 
         /*
             Title bar functionality
@@ -67,22 +105,41 @@ public class Controller implements Initializable {
 
         // Minimize window
         minBtn.setOnAction(e -> ((Stage) anchorPane.getScene().getWindow()).setIconified(true));
+
         /*
              Message and username functionality
          */
 
         // Set user-defined name (username)
-        textField.setOnKeyReleased(e -> app.username = textField.getText());
+        textField.setOnKeyReleased(e -> app.username = textField.getText().toLowerCase());
 
         // Send message when press enter
         textArea.setOnKeyPressed(e -> {
-            if (e.getCode() != KeyCode.ENTER)
-                return;
-
             // No username - prompt user to type a name
             if (app.username == null || app.username.length() < 1) {
                 e.consume();
                 textField.requestFocus();
+                return;
+            }
+
+            if (e.getCode() != KeyCode.ENTER) {
+                // User is actively drafting messag
+                if (typing)
+                    return;
+                else
+                    typing = true;
+
+                if (app.server != null && app.server.started) {
+                    // User is hosting server
+                    // Inform connected clients - user is typing
+                    ArrayList<String> clientsToInform = new ArrayList<>();
+                    for (String client : app.server.connectedClients) {
+                        if (!client.equals(app.username))
+                            clientsToInform.add(client);
+                    }
+
+                    app.server.dataToSend.put("TYPING:" + app.username, clientsToInform);
+                }
                 return;
             }
 
@@ -117,12 +174,14 @@ public class Controller implements Initializable {
 
         // Open server panel
 
+        //TODO prevent access if username is not set
+
         connectImg.setOnMouseClicked(e -> {
-            new Server(app).initialize();
+            (app.server = new Server(app)).initialize();
         });
 
         mediaImg.setOnMouseClicked(e -> {
-            new Client(app).initialize();
+            (app.client = new Client(app)).initialize();
         });
     }
 }
