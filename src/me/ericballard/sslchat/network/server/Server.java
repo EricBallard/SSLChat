@@ -72,7 +72,7 @@ public class Server extends Thread {
             socket = (SSLSocket) clientSocket;
             socket.setKeepAlive(true);
 
-            System.out.println("Received connection request: " + socket.getInetAddress());
+            //System.out.println("Received connection request: " + socket.getInetAddress());
             return true;
         } catch (IOException e) {
             if (started) {

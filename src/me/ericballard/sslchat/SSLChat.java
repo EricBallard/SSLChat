@@ -65,6 +65,11 @@ public class SSLChat extends Application {
     public void updateTypingCount() {
         int typing = typingClients.size();
 
+        if (typing == 0) {
+            Platform.runLater(() -> controller.typingLbl.setText(null));
+            return;
+        }
+
         String msg = typing > 2 ? (typing + " people are typing") : typingClients.get(0) + (typing == 2 ? " and " + typingClients.get(1) + " are" : " is") + " typing";
         Platform.runLater(() -> controller.typingLbl.setText(msg));
     }

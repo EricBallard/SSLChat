@@ -88,7 +88,7 @@
                </children>
             </GridPane>
             <ListView fx:id="listView" GridPane.columnIndex="2" GridPane.halignment="CENTER" GridPane.hgrow="SOMETIMES" GridPane.rowIndex="3" GridPane.valignment="CENTER" GridPane.vgrow="SOMETIMES" />
-            <GridPane opacity="0.5" style="-fx-background-color: linear-gradient(from 25% 25% to 100% 100%, #252525, #505050);" GridPane.columnIndex="2" GridPane.rowIndex="2">
+            <GridPane opacity="0.5" style="-fx-background-color: rgba(50, 50, 50, 1.0);" GridPane.columnIndex="2" GridPane.rowIndex="2">
               <columnConstraints>
                 <ColumnConstraints halignment="CENTER" hgrow="SOMETIMES" prefWidth="100.0" />
               </columnConstraints>

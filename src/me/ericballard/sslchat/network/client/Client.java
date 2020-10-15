@@ -1,5 +1,6 @@
 package me.ericballard.sslchat.network.client;
 
+import javafx.application.Platform;
 import me.ericballard.sslchat.SSLChat;
 
 import javax.net.ssl.SSLSocket;
@@ -12,6 +13,8 @@ public class Client extends Thread {
     SSLChat app;
 
     SSLSocket socket;
+
+    Thread readThread;
 
     LinkedList<String> receivedData = new LinkedList<>();
 
@@ -29,32 +32,16 @@ public class Client extends Thread {
             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
+            // Start separate thread to cache incoming data from server
+            readThread = initReadThread(reader);
+            readThread.start();
+
             // Authorize our client and register name on server
             writer.println("CONNECT:" + app.username);
 
-            // Start separate thread to cache incoming data from server
-            Thread readThread = new Thread(() -> {
-                while (!Thread.interrupted()) {
-                    try {
-                        String data = reader.readLine();
+            while (!isInterrupted() && !readThread.isInterrupted()) {
+                receiveUpdate(writer);
 
-                        if (data == null || !data.contains(":")) {
-                            System.out.println("Invalid data: " + data);
-                            continue;
-                        }
-
-                        System.out.println("Received data: " + data);
-                        receivedData.add(data);
-                    } catch (IOException e) {
-                        System.out.println("Failed to read data from server due to: " + e.getMessage());
-                    }
-                }
-            });
-
-            readThread.start();
-
-            main:
-            while (!Thread.interrupted()) {
                 // Client is disconnecting
                 if (disconnecting) {
                     System.out.println("Disconnecting from server...");
@@ -62,65 +49,94 @@ public class Client extends Thread {
                     System.out.println("Sent data, interuppting threads..");
 
                     readThread.interrupt();
-                    //interrupt();
                     break;
                 }
 
-                if (!receivedData.isEmpty()) {
-                    String serverReponse = receivedData.getFirst();
-                    receivedData.removeFirst();
-
-                    String[] data = serverReponse.split(":");
-
-                    switch (data[0]) {
-                        case "CONNECT-DENIED":
-                            // Client's defined username is already taken
-                            // Inform server client is disconnecting
-                            writer.println("DISCONNECT:Client");
-                            break main;
-                        case "CONNECT-ACCEPTED":
-                            // Client has successfully connected to server and registered name
-
-                            // Request number of users connected to server
-                            writer.println("USER-COUNT:Request");
-                            break;
-                        case "USER-COUNT":
-                            // Client has requested number of connected users
-                            String connectedClients = data[1];
-                            int users = 0;
-
-                            try {
-                                users = Integer.parseInt(connectedClients);
-                            } catch (NumberFormatException ne) {
-                                System.out.println("Failed to retrieve number of connected clients on server: " + serverReponse);
-                            }
-
-                            app.controller.onlineTxt.setText(String.valueOf(users));
-
-                            // Inform server we've received data, wait for further info (eg; user typing/new message)
-                            writer.println("IDLE:Client");
-                            break;
-                        case "TYPING":
-                            String userTyping = data[1];
-                            app.typingClients.add(userTyping);
-                            app.updateTypingCount();
-                            break;
-                    }
-                }
-
                 // Check if local client is typing and update server if so
-                if (!this.typing && app.controller.typing)
-                    writer.println("TYPING:" + app.username);
+                if (app.controller.typing) {
+                    if (!typing)
+                        writer.println("TYPING:" + app.username);
+                } else if (typing)
+                    writer.println("IDLE:" + app.username);
 
                 this.typing = app.controller.typing;
                 Thread.sleep(200);
             }
 
             socket.close();
-            System.out.println("Closed server connection.");
+            System.out.println("CLIENT DISCONNECTING | SOCKET CLOSED...");
         } catch (Exception e) {
             e.printStackTrace();
         }
+    }
+
+    private void receiveUpdate(PrintWriter writer) {
+        if (receivedData.isEmpty())
+            return;
+
+        String serverReponse = receivedData.getFirst();
+        receivedData.removeFirst();
+
+        String[] info = serverReponse.split(":");
+        String data = info[0];
+
+        switch (data) {
+            case "CONNECT-DENIED":
+                disconnecting = true;
+                break;
+            case "CONNECT-ACCEPTED":
+                // Client has successfully connected to server and registered name
+                break;
+            case "USER-COUNT":
+                // Client has requested number of connected users
+                String connectedClients = info[1];
+                int users;
+
+                try {
+                    users = Integer.parseInt(connectedClients);
+                } catch (NumberFormatException ne) {
+                    System.out.println("Failed to retrieve number of connected clients on server: " + serverReponse);
+                    break;
+                }
+
+                Platform.runLater(() -> app.controller.onlineTxt.setText(String.valueOf(users)));
+                break;
+            case "IDLE":
+            case "TYPING":
+                String userTyping = info[1];
+
+                if (data.equals("TYPING")) {
+                    if (app.typingClients.contains(userTyping))
+                        break;
+
+                    app.typingClients.add(userTyping);
+                } else {
+                    app.typingClients.remove(userTyping);
+                }
+
+                app.updateTypingCount();
+                break;
+        }
+    }
+
+    private Thread initReadThread(BufferedReader reader) {
+        return new Thread(() -> {
+            while (!Thread.interrupted()) {
+                try {
+                    String data = reader.readLine();
+
+                    if (data == null || !data.contains(":")) {
+                        System.out.println("Invalid data: " + data);
+                        continue;
+                    }
+
+                    System.out.println("Received data: " + data);
+                    receivedData.add(data);
+                } catch (IOException e) {
+                    System.out.println("Failed to read data from server due to: " + e.getMessage());
+                }
+            }
+        });
     }
 
     public void initialize() {

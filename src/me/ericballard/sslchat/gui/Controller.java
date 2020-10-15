@@ -113,6 +113,22 @@ public class Controller implements Initializable {
         // Set user-defined name (username)
         textField.setOnKeyReleased(e -> app.username = textField.getText().toLowerCase());
 
+        textArea.focusedProperty().addListener(e -> {
+            // User has stopped typing while drafting a message
+            if (!typing)
+                return;
+            else
+                typing = false;
+
+            if (app.server != null && app.server.started) {
+                // Inform users on server we have stopped typing
+                ArrayList<String> clientsToInform = (ArrayList<String>) app.server.connectedClients.clone();
+                clientsToInform.remove(app.username);
+
+                app.server.dataToSend.put("IDLE:" + app.username, clientsToInform);
+            }
+        });
+
         // Send message when press enter
         textArea.setOnKeyPressed(e -> {
             // No username - prompt user to type a name
@@ -132,11 +148,8 @@ public class Controller implements Initializable {
                 if (app.server != null && app.server.started) {
                     // User is hosting server
                     // Inform connected clients - user is typing
-                    ArrayList<String> clientsToInform = new ArrayList<>();
-                    for (String client : app.server.connectedClients) {
-                        if (!client.equals(app.username))
-                            clientsToInform.add(client);
-                    }
+                    ArrayList<String> clientsToInform = (ArrayList<String>) app.server.connectedClients.clone();
+                    clientsToInform.remove(app.username);
 
                     app.server.dataToSend.put("TYPING:" + app.username, clientsToInform);
                 }
@@ -148,8 +161,10 @@ public class Controller implements Initializable {
                 return;
 
             e.consume();
+            typing = false;
             textArea.setText(null);
             System.out.println("Sending message: (" + app.username + ") " + msg);
+            //TODO
         });
 
         /*
