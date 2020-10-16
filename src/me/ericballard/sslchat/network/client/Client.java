@@ -18,10 +18,16 @@ public class Client extends Thread {
 
     LinkedList<String> receivedData = new LinkedList<>();
 
+    public LinkedList<String> dataToSend = new LinkedList<>();
+
     public boolean typing, disconnecting;
 
-    public Client(SSLChat app) {
+    String address, port;
+
+    public Client(SSLChat app, String address, String port) {
         this.app = app;
+        this.address = address;
+        this.port = port;
     }
 
     @Override
@@ -44,11 +50,10 @@ public class Client extends Thread {
 
                 // Client is disconnecting
                 if (disconnecting) {
-                    System.out.println("Disconnecting from server...");
-                    writer.println("DISCONNECT:" + app.username);
-                    System.out.println("Sent data, interuppting threads..");
+                    if (typing)
+                        writer.println("IDLE:" + app.username);
 
-                    readThread.interrupt();
+                    writer.println("DISCONNECT:" + app.username);
                     break;
                 }
 
@@ -56,15 +61,21 @@ public class Client extends Thread {
                 if (app.controller.typing) {
                     if (!typing)
                         writer.println("TYPING:" + app.username);
-                } else if (typing)
+                } else if (typing) {
                     writer.println("IDLE:" + app.username);
+                } else {
+                    // Send messages to server
+                    if (!dataToSend.isEmpty()) {
+                        String msg = dataToSend.getFirst();
+                        dataToSend.removeFirst();
+                        writer.println(msg);
+                    }
+                }
 
                 this.typing = app.controller.typing;
-                Thread.sleep(200);
             }
 
             socket.close();
-            System.out.println("CLIENT DISCONNECTING | SOCKET CLOSED...");
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -83,9 +94,25 @@ public class Client extends Thread {
         switch (data) {
             case "CONNECT-DENIED":
                 disconnecting = true;
+
+                // Request name is in use
+                app.alerts.inform("UNABLE TO CONNECT TO SERVER", "Your requested username is in use, please try again.");
+                app.controller.textField.setDisable(false);
                 break;
             case "CONNECT-ACCEPTED":
                 // Client has successfully connected to server and registered name
+                break;
+            case "MESSAGE":
+                // Add message to local client
+                String[] msgInfo = info[1].split(";");
+                String username = msgInfo[1];
+
+                app.addMessage(msgInfo[0], username, msgInfo[2], (!app.muted && !username.equals(app.username)));
+
+                if (app.typingClients.contains(username)) {
+                    app.typingClients.remove(username);
+                    app.updateTypingCount();
+                }
                 break;
             case "USER-COUNT":
                 // Client has requested number of connected users
@@ -121,19 +148,22 @@ public class Client extends Thread {
 
     private Thread initReadThread(BufferedReader reader) {
         return new Thread(() -> {
-            while (!Thread.interrupted()) {
+            while (!isInterrupted()) {
                 try {
                     String data = reader.readLine();
 
                     if (data == null || !data.contains(":")) {
-                        System.out.println("Invalid data: " + data);
                         continue;
                     }
 
                     System.out.println("Received data: " + data);
                     receivedData.add(data);
                 } catch (IOException e) {
-                    System.out.println("Failed to read data from server due to: " + e.getMessage());
+                    String msg = e.getMessage();
+                    System.out.println("Failed to read data from client due to: " + msg);
+
+                    if (msg.equals("Socket is closed"))
+                        break;
                 }
             }
         });

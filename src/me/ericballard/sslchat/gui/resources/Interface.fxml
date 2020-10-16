@@ -123,7 +123,7 @@
                     </rowConstraints>
                      <children>
                         <TextField fx:id="textField" alignment="CENTER" promptText="Username" />
-                        <ColorPicker GridPane.rowIndex="1" />
+                        <ColorPicker fx:id="colorPicker" GridPane.rowIndex="1" />
                      </children>
                   </GridPane>
                </children>
@@ -142,7 +142,7 @@
                   <RowConstraints valignment="CENTER" vgrow="SOMETIMES" />
               </rowConstraints>
                <children>
-                  <ImageView fx:id="soundImg" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="2" GridPane.rowIndex="1">
+                  <ImageView fx:id="soundImg" disable="true" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="2" GridPane.rowIndex="1">
                      <image>
                         <Image url="@images/sound.png" />
                      </image>
@@ -150,7 +150,7 @@
                         <Cursor fx:constant="HAND" />
                      </cursor>
                   </ImageView>
-                  <ImageView fx:id="mediaImg" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="1" GridPane.rowIndex="1">
+                  <ImageView fx:id="mediaImg" disable="true" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="1" GridPane.rowIndex="1">
                      <image>
                         <Image url="@images/media.png" />
                      </image>
@@ -158,7 +158,7 @@
                         <Cursor fx:constant="HAND" />
                      </cursor>
                   </ImageView>
-                  <ImageView fx:id="connectImg" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="3" GridPane.rowIndex="1">
+                  <ImageView fx:id="connectImg" disable="true" fitHeight="30.0" fitWidth="30.0" pickOnBounds="true" preserveRatio="true" GridPane.columnIndex="3" GridPane.rowIndex="1">
                      <image>
                         <Image url="@images/connect.png" />
                      </image>
@@ -166,17 +166,17 @@
                         <Cursor fx:constant="HAND" />
                      </cursor>
                   </ImageView>
-                  <Text fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Images" textAlignment="CENTER" GridPane.columnIndex="1">
+                  <Text fx:id="imgTxt" disable="true" fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Images" textAlignment="CENTER" GridPane.columnIndex="1">
                      <font>
                         <Font name="System Italic" size="12.0" />
                      </font>
                   </Text>
-                  <Text fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Sound" textAlignment="CENTER" GridPane.columnIndex="2">
+                  <Text fx:id="soundTxt" disable="true" fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Sound" textAlignment="CENTER" GridPane.columnIndex="2">
                      <font>
                         <Font name="System Italic" size="12.0" />
                      </font>
                   </Text>
-                  <Text fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Connect" textAlignment="CENTER" GridPane.columnIndex="3">
+                  <Text fx:id="connectTxt" disable="true" fill="WHITE" strokeType="OUTSIDE" strokeWidth="0.0" text="Connect" textAlignment="CENTER" GridPane.columnIndex="3">
                      <font>
                         <Font name="System Italic" size="12.0" />
                      </font>

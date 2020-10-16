@@ -1,6 +1,11 @@
 package me.ericballard.sslchat.network.server;
 
 import javafx.application.Platform;
+import javafx.scene.control.Alert;
+import javafx.scene.control.DialogPane;
+import javafx.scene.paint.Color;
+import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 
 import javax.net.ssl.SSLSocket;
 import java.io.BufferedReader;
@@ -31,30 +36,25 @@ public class ClientHandler extends Thread {
             // Authorize clients requested name
             String name = authorize(writer, reader);
 
-            if (name == null) {
-                // Request name is in use
-                //TODO
-                return;
-            }
+            if (name != null) {
+                // Update connected user #
+                updateConnectedClientSize();
 
-            // Update connected user #
-            updateConnectedClientSize();
+                // Start separate thread to cache incoming data from client
+                readThread = initReadThread(reader);
+                readThread.start();
 
-            // Start separate thread to cache incoming data from client
-            readThread = initReadThread(reader);
-            readThread.start();
+                // Client is connected and authorization
+                while (!isInterrupted() && !readThread.isInterrupted()) {
+                    if (!receiveUpdate(name)) {
+                        // User is dis-connecting
+                        break;
+                    }
 
-            // Client is connected and authorization
-            main:
-            while (!isInterrupted() && !readThread.isInterrupted()) {
-                if (!receiveUpdate(name)) {
-                    // User is connecting
-                    break;
+                    // Send updates to client (users typing/messages/connecting/etc)
+                    sendUpdate(writer, name);
+                    continue;
                 }
-
-                // Send updates to client (users typing/messages/connecting/etc)
-                sendUpdate(writer, name);
-                continue main;
             }
 
             socket.close();
@@ -66,7 +66,7 @@ public class ClientHandler extends Thread {
 
     private Thread initReadThread(BufferedReader reader) {
         return new Thread(() -> {
-            while (!Thread.interrupted()) {
+            while (!isInterrupted()) {
                 try {
                     String data = reader.readLine();
 
@@ -81,7 +81,7 @@ public class ClientHandler extends Thread {
                     System.out.println("Failed to read data from client due to: " + msg);
 
                     if (msg.equals("Socket is closed"))
-                        interrupt();
+                        break;
                 }
             }
         });
@@ -141,8 +141,18 @@ public class ClientHandler extends Thread {
         String clientMsg = receivedData.getFirst();
         receivedData.removeFirst();
 
+        ArrayList<String> clientsToInform;
         String[] info = clientMsg.split(":");
         String data = info[0];
+
+        // Fix to include typed messages containing : char
+        if (info.length > 2) {
+            String messages = null;
+            for (int i = 1; i < info.length; i++)
+                messages = (messages == null ? "" : messages + ":") + info[i];
+            info = new String[]{data, messages};
+        }
+
 
         switch (data) {
             // Disconnect client from server
@@ -150,26 +160,49 @@ public class ClientHandler extends Thread {
                 readThread.interrupt();
                 server.connectedClients.remove(name);
 
+                Iterator<String> itr = server.dataToSend.keySet().iterator();
+
+                while (itr.hasNext()) {
+                    String s = itr.next();
+                    clientsToInform = server.dataToSend.get(s);
+
+                    if (clientsToInform.contains(name))
+                        clientsToInform.remove(name);
+                }
+
                 updateConnectedClientSize();
                 return false;
+            case "MESSAGE":
+                // Client has sent new message - relay to connected clients
+                clientsToInform = (ArrayList<String>) server.connectedClients.clone();
+                clientsToInform.remove(server.app.username);
+
+                server.dataToSend.put(clientMsg, clientsToInform);
+
+                // Add message to local client
+                String[] msgInfo = info[1].split(";");
+
+                System.out.println("INFO: " + Arrays.asList(msgInfo));
+                server.app.addMessage(msgInfo[0], msgInfo[1], msgInfo[2], !server.app.muted);
+                break;
             case "IDLE":
             case "TYPING":
+                // Client has informed server they are typing - inform all connected users that client is typing
                 String username = info[1];
 
-                ArrayList<String> clientsToInform = (ArrayList<String>) server.connectedClients.clone();
+                clientsToInform = (ArrayList<String>) server.connectedClients.clone();
                 clientsToInform.remove(username);
 
-                // Client has informed server they are typing - inform all connected users that client is typing
                 server.dataToSend.put(data + ":" + username, clientsToInform);
 
                 if (data.equals("TYPING")) {
                     // Update typing count for local client
                     server.app.typingClients.add(username);
-                    server.app.updateTypingCount();
                 } else {
                     server.app.typingClients.remove(username);
-                    server.app.updateTypingCount();
                 }
+
+                server.app.updateTypingCount();
                 break;
         }
         return true;

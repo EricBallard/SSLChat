@@ -42,3 +42,26 @@
 .color-picker .color-picker-label {
     -fx-text-fill: #757575;
 }
+.list-view .scroll-bar:vertical,.scroll-bar:horizontal {
+    -fx-scale-x: 0;
+    -fx-padding:-7;
+}
+.myDialog{
+    -fx-background-color: #505050;
+}
+.myDialog > *.button-bar > *.container{
+    -fx-background-color: #505050;
+}
+.myDialog > *.label.content{
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #252525;
+}
+.myDialog:header *.header-panel{
+    -fx-background-color: #252525;
+}
+.myDialog:header *.header-panel *.label{
+    -fx-font-size: 18px;
+    -fx-font-style: italic;
+    -fx-text-fill: #757575;
+}

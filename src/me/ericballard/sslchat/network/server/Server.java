@@ -21,14 +21,18 @@ public class Server extends Thread {
     SSLSocket socket;
     SSLServerSocket serverSocket;
 
+    String address, port;
+
     // Connected users to server
     public ArrayList<String> connectedClients = new ArrayList<>();
 
     // Data - Clients to send to
     public HashMap<String, ArrayList<String>> dataToSend = new HashMap<>();
 
-    public Server(SSLChat app) {
+    public Server(SSLChat app, String address, String port) {
         this.app = app;
+        this.address = address;
+        this.port = port;
     }
 
     @Override

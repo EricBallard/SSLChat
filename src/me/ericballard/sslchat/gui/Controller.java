@@ -1,7 +1,11 @@
 package me.ericballard.sslchat.gui;
 
+import javafx.beans.InvalidationListener;
+import javafx.event.Event;
+import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
+import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -9,33 +13,39 @@ import javafx.scene.input.KeyCode;
 import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.GridPane;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
+import javafx.scene.text.TextFlow;
 import javafx.stage.Stage;
+import javafx.stage.StageStyle;
 import me.ericballard.sslchat.SSLChat;
 import me.ericballard.sslchat.network.client.Client;
 import me.ericballard.sslchat.network.server.Server;
 
+import java.io.File;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Optional;
 import java.util.ResourceBundle;
+import java.util.regex.Pattern;
 
 public class Controller implements Initializable {
 
     @FXML // Root
-    AnchorPane anchorPane;
+    public AnchorPane anchorPane;
 
     @FXML  // Message history
-    ListView listView;
+    public ListView<TextFlow> listView;
 
     @FXML  // Username
-    TextField textField;
+    public TextField textField;
 
     @FXML // Message draft
     TextArea textArea;
 
     @FXML // Displays # of online users in connected server
-    public Text onlineTxt;
+    public Text onlineTxt, imgTxt, soundTxt, connectTxt;
 
     @FXML // User-name color
     ColorPicker colorPicker;
@@ -111,7 +121,35 @@ public class Controller implements Initializable {
          */
 
         // Set user-defined name (username)
-        textField.setOnKeyReleased(e -> app.username = textField.getText().toLowerCase());
+        textField.setOnKeyReleased(e -> {
+            String name = textField.getText();
+
+            if (name == null || name.length() < 1) {
+                app.controller.connectTxt.setDisable(true);
+                app.controller.connectImg.setDisable(true);
+                return;
+            } else
+                name = name.toLowerCase();
+
+            // Disallow special characters in name
+            if (!Pattern.matches("[a-zA-Z]+", name)) {
+                textField.setText(app.username);
+
+                if (app.username != null)
+                    textField.positionCaret(app.username.length());
+                else {
+                    app.controller.connectTxt.setDisable(true);
+                    app.controller.connectImg.setDisable(true);
+                }
+
+                e.consume();
+                return;
+            }
+
+            app.username = name;
+            app.controller.connectTxt.setDisable(false);
+            app.controller.connectImg.setDisable(false);
+        });
 
         textArea.focusedProperty().addListener(e -> {
             // User has stopped typing while drafting a message
@@ -139,7 +177,7 @@ public class Controller implements Initializable {
             }
 
             if (e.getCode() != KeyCode.ENTER) {
-                // User is actively drafting messag
+                // User is actively drafting message
                 if (typing)
                     return;
                 else
@@ -157,75 +195,69 @@ public class Controller implements Initializable {
             }
 
             String msg = textArea.getText();
-            if (msg == null || msg.length() < 1)
+            if (msg == null || msg.length() < 2) {
+                e.consume();
                 return;
+            }
 
-            e.consume();
-            typing = false;
+            Color color = colorPicker.getValue();
+            String userColor = color.getRed() + "," + color.getGreen() + "," + color.getBlue() + "," + color.getOpacity();
+            String data = userColor + ";" + app.username + ";" + msg;
+
+            // User is sending new message
             textArea.setText(null);
-            System.out.println("Sending message: (" + app.username + ") " + msg);
-            //TODO
+            typing = false;
+            e.consume();
+
+            if (app.server != null && app.server.started) {
+                ArrayList<String> clientsToInform = (ArrayList<String>) app.server.connectedClients.clone();
+                clientsToInform.remove(app.username);
+
+                app.server.dataToSend.put("MESSAGE:" + data, clientsToInform);
+
+                // Add msg to local client
+                app.addMessage(userColor, app.username, msg, false);
+            } else {
+                app.client.dataToSend.add("MESSAGE:" + data);
+            }
         });
 
         /*
             User Controls
          */
 
+        // Style
+        InvalidationListener il = (e -> {
+            System.out.println("TEST");
+
+            Node n = (Text) e;
+            n.setOpacity(n.isDisabled() ? 0.5 : 1.0);
+        });
+
+        imgTxt.disableProperty().addListener(il);
+        soundTxt.disableProperty().addListener(il);
+        imgTxt.disableProperty().addListener(il);
+
         // Toggle message notification
         soundImg.setOnMouseClicked(e -> {
             if (app.muted = (!app.muted)) {
                 // Muted
-                soundImg.setImage(new Image("gui/resources/mute.png"));
+                soundImg.setImage(new Image(new File("src/me/ericballard/sslchat/gui/resources/images/mute.png").toURI().toString()));
             } else {
                 // Un-muted
-                soundImg.setImage(new Image("gui/resources/sound.png"));
+                soundImg.setImage(new Image(new File("src/me/ericballard/sslchat/gui/resources/images/sound.png").toURI().toString()));
             }
         });
 
-        // Send Image
-        mediaImg.setOnMouseClicked(e -> {
-
-        });
-
         // Open server panel
-
-        //TODO prevent access if username is not set
-
         connectImg.setOnMouseClicked(e -> {
-            (app.server = new Server(app)).initialize();
+            textField.setDisable(true);
+            app.alerts.getOption();
         });
 
+        // Send media to server
         mediaImg.setOnMouseClicked(e -> {
-            (app.client = new Client(app)).initialize();
+
         });
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
