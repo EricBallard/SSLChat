@@ -2,6 +2,7 @@ package me.ericballard.sslchat.network.client;
 
 import javafx.application.Platform;
 import me.ericballard.sslchat.SSLChat;
+import me.ericballard.sslchat.network.Media;
 
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
@@ -21,6 +22,8 @@ public class Client extends Thread {
     public LinkedList<String> dataToSend = new LinkedList<>();
 
     public boolean typing, disconnecting;
+
+    public File imgToSend;
 
     String address, port;
 
@@ -50,6 +53,8 @@ public class Client extends Thread {
 
                 // Client is disconnecting
                 if (disconnecting) {
+                    readThread.interrupt();
+
                     if (typing)
                         writer.println("IDLE:" + app.username);
 
@@ -68,7 +73,12 @@ public class Client extends Thread {
                     if (!dataToSend.isEmpty()) {
                         String msg = dataToSend.getFirst();
                         dataToSend.removeFirst();
-                        writer.println(msg);
+
+                        if (msg.startsWith("MEDIA")) {
+                            writer.println(msg);
+                            Media.send(socket, imgToSend);
+                        } else
+                            writer.println(msg);
                     }
                 }
 
@@ -80,7 +90,6 @@ public class Client extends Thread {
             e.printStackTrace();
         }
     }
-
     private void receiveUpdate(PrintWriter writer) {
         if (receivedData.isEmpty())
             return;
@@ -92,6 +101,25 @@ public class Client extends Thread {
         String data = info[0];
 
         switch (data) {
+            case "SHUTDOWN":
+                readThread.interrupt();
+
+                app.typingClients.clear();
+                app.updateTypingCount();
+
+                Platform.runLater(() -> {
+                    app.controller.statusCircle.setFill(app.controller.offFill);
+                    app.controller.onlineTxt.setText("0");
+
+                    app.controller.imgTxt.setDisable(true);
+                    app.controller.mediaImg.setDisable(true);
+
+                    app.controller.soundTxt.setDisable(true);
+                    app.controller.soundImg.setDisable(true);
+                });
+
+                interrupt();
+                break;
             case "CONNECT-DENIED":
                 disconnecting = true;
 
@@ -101,6 +129,9 @@ public class Client extends Thread {
                 break;
             case "CONNECT-ACCEPTED":
                 // Client has successfully connected to server and registered name
+                break;
+            case "MEDIA":
+                //TODO
                 break;
             case "MESSAGE":
                 // Add message to local client

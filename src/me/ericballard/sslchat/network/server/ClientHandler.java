@@ -1,17 +1,13 @@
 package me.ericballard.sslchat.network.server;
 
 import javafx.application.Platform;
-import javafx.scene.control.Alert;
-import javafx.scene.control.DialogPane;
-import javafx.scene.paint.Color;
-import javafx.scene.text.Text;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.text.TextFlow;
+import me.ericballard.sslchat.network.Media;
 
 import javax.net.ssl.SSLSocket;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.PrintWriter;
+import java.io.*;
 import java.util.*;
 
 public class ClientHandler extends Thread {
@@ -19,7 +15,11 @@ public class ClientHandler extends Thread {
     Server server;
     SSLSocket socket;
     Thread readThread;
+    boolean receivingImg;
+
     LinkedList<String> receivedData = new LinkedList<>();
+    LinkedList<File> mediaQueue = new LinkedList<>();
+
 
     public ClientHandler(Server server, SSLSocket socket) {
         this.server = server;
@@ -46,13 +46,17 @@ public class ClientHandler extends Thread {
 
                 // Client is connected and authorization
                 while (!isInterrupted() && !readThread.isInterrupted()) {
-                    if (!receiveUpdate(name)) {
+                    if (!server.disconnecting && !receivingImg && !receiveUpdate(name)) {
                         // User is dis-connecting
                         break;
                     }
 
                     // Send updates to client (users typing/messages/connecting/etc)
-                    sendUpdate(writer, name);
+                    if (!sendUpdate(writer, name)) {
+                        // Server is shutting-down
+                        readThread.interrupt();
+                        break;
+                    }
                     continue;
                 }
             }
@@ -68,24 +72,41 @@ public class ClientHandler extends Thread {
         return new Thread(() -> {
             while (!isInterrupted()) {
                 try {
+                    if (receivingImg) {
+                        // Client has sent media - relay to connected clients
+                        File media = Media.receive(socket);
+
+                        if (media != null)
+                            mediaQueue.add(media);
+                        else
+                            receivedData.removeLast();
+
+                        receivingImg = false;
+                        continue;
+                    }
+
                     String data = reader.readLine();
 
                     if (data == null || !data.contains(":"))
                         continue;
 
-
                     System.out.println("Received data: " + data);
+
+                    if (data.startsWith("MEDIA:"))
+                        receivingImg = true;
+
                     receivedData.add(data);
                 } catch (IOException e) {
                     String msg = e.getMessage();
                     System.out.println("Failed to read data from client due to: " + msg);
 
-                    if (msg.equals("Socket is closed"))
+                    if (msg == null)
+                        e.printStackTrace();
+                    else if (msg.equals("Socket is closed"))
                         break;
                 }
             }
         });
-
     }
 
     private String authorize(PrintWriter writer, BufferedReader reader) throws IOException {
@@ -153,7 +174,6 @@ public class ClientHandler extends Thread {
             info = new String[]{data, messages};
         }
 
-
         switch (data) {
             // Disconnect client from server
             case "DISCONNECT":
@@ -172,6 +192,26 @@ public class ClientHandler extends Thread {
 
                 updateConnectedClientSize();
                 return false;
+            case "MEDIA":
+                if (mediaQueue.isEmpty())
+                    break;
+
+                File file = mediaQueue.getFirst();
+
+                // Convert file to fx image - add to local
+                Image image = new Image(file.toURI().toString());
+                ImageView img = new ImageView(image);
+                img.setFitHeight(100);
+                img.setFitWidth(100);
+
+                Platform.runLater(() -> server.app.controller.listView.getItems().add(new TextFlow(img)));
+
+                // Relay message
+                clientsToInform = (ArrayList<String>) server.connectedClients.clone();
+                clientsToInform.remove(server.app.username);
+
+                server.dataToSend.put(clientMsg, clientsToInform);
+                break;
             case "MESSAGE":
                 // Client has sent new message - relay to connected clients
                 clientsToInform = (ArrayList<String>) server.connectedClients.clone();
@@ -208,9 +248,10 @@ public class ClientHandler extends Thread {
         return true;
     }
 
-    private void sendUpdate(PrintWriter writer, String name) {
-        if (server.dataToSend.isEmpty())
-            return;
+    private boolean sendUpdate(PrintWriter writer, String name) {
+        if (server.dataToSend.isEmpty()) {
+            return !server.disconnecting;
+        }
 
         // Check if need to update client
         String dataToSend = null;
@@ -224,7 +265,6 @@ public class ClientHandler extends Thread {
                 toInform = server.dataToSend.get(data);
 
                 if (toInform == null || toInform.isEmpty()) {
-                    dataToSend = data;
                     itr.remove();
                     continue;
                 } else if (toInform.contains(name)) {
@@ -233,12 +273,12 @@ public class ClientHandler extends Thread {
                 }
             }
         } catch (ConcurrentModificationException e) {
-            return;
+            return true;
         }
 
         // Connected client is fully updated
         if (dataToSend == null)
-            return;
+            return true;
 
         // Client needs to be updated
         System.out.println(name + " | Sending data: " + dataToSend);
@@ -248,5 +288,7 @@ public class ClientHandler extends Thread {
             server.dataToSend.remove(dataToSend);
         else
             toInform.remove(name);
+
+        return true;
     }
 }

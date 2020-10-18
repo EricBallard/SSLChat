@@ -2,11 +2,14 @@ package me.ericballard.sslchat.gui;
 
 import javafx.application.Platform;
 import javafx.scene.control.*;
+import javafx.scene.control.Dialog;
+import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import me.ericballard.sslchat.SSLChat;
 import me.ericballard.sslchat.network.client.Client;
 import me.ericballard.sslchat.network.server.Server;
 
+import java.awt.*;
 import java.util.Optional;
 
 public class Alerts {
@@ -74,20 +77,29 @@ public class Alerts {
         dialog.setContentText("Please enter server address and port:");
 
         dialog.showAndWait().ifPresent(typed -> typedIP = typed);
-        System.out.println("Typed IP: " + typedIP);
 
         if (typedIP != null && typedIP.contains(":")) {
             String[] info = typedIP.split(":");
             String address = info[0], port = info[1];
+            info = address.split("\\.");
 
             // Validate address
-            if (address.contains(".") && address.split(".").length == 4) {
+            if (address.contains(".") && info.length == 4) {
                 // Connect to server
                 if (host) {
+                    //TODO check if connected to server/client (client!=null)
+                    // disconnect and than set obj to null
+
                     (app.server = new Server(app, address, port)).initialize();
                 } else {
                     (app.client = new Client(app, address, port)).initialize();
                 }
+
+                // Clear messages
+                app.controller.listView.getItems().clear();
+
+                // Show online status
+                app.controller.statusCircle.setFill(app.controller.circle.getFill());
                 return true;
             } else {
                 // Invalid address
@@ -107,5 +119,11 @@ public class Alerts {
         DialogPane dialogPane = alert.getDialogPane();
         dialogPane.getStylesheets().add(app.controller.anchorPane.getStylesheets().get(0));
         dialogPane.getStyleClass().add("myDialog");
+
+        Stage stage = (Stage) dialogPane.getScene().getWindow();
+        Stage mainStage = (Stage) app.controller.anchorPane.getScene().getWindow();
+
+        stage.setX(mainStage.getX());
+        stage.setY(mainStage.getY());
     }
 }

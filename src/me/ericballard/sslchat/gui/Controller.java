@@ -1,11 +1,7 @@
 package me.ericballard.sslchat.gui;
 
-import javafx.beans.InvalidationListener;
-import javafx.event.Event;
-import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.fxml.Initializable;
-import javafx.scene.Node;
 import javafx.scene.control.*;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
@@ -14,14 +10,13 @@ import javafx.scene.layout.AnchorPane;
 import javafx.scene.layout.Background;
 import javafx.scene.layout.GridPane;
 import javafx.scene.paint.Color;
+import javafx.scene.paint.Paint;
 import javafx.scene.shape.Circle;
 import javafx.scene.text.Text;
 import javafx.scene.text.TextFlow;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
-import javafx.stage.StageStyle;
 import me.ericballard.sslchat.SSLChat;
-import me.ericballard.sslchat.network.client.Client;
-import me.ericballard.sslchat.network.server.Server;
 
 import java.io.File;
 import java.net.URL;
@@ -54,16 +49,19 @@ public class Controller implements Initializable {
     public Label typingLbl;
 
     @FXML // Server status
-    Circle circle;
+    public Circle circle, statusCircle;
 
     @FXML // Title bar buttons
     Button minBtn, exitBtn;
 
     @FXML // User controls
-    ImageView mediaImg, soundImg, connectImg;
+    public ImageView mediaImg, soundImg, connectImg;
 
     @FXML
     GridPane controlGrid, titleGrid;
+
+    // Cached red fill for status cicle
+    public Paint offFill;
 
     // Instance of main
     SSLChat app;
@@ -79,6 +77,8 @@ public class Controller implements Initializable {
 
     @Override
     public void initialize(URL location, ResourceBundle resources) {
+        offFill = statusCircle.getFill();
+
         // Style
         anchorPane.setBackground(Background.EMPTY);
         anchorPane.setClip(new Circle(circle.getLayoutX(), circle.getLayoutY(), circle.getRadius()));
@@ -227,16 +227,13 @@ public class Controller implements Initializable {
          */
 
         // Style
-        InvalidationListener il = (e -> {
-            System.out.println("TEST");
+        imgTxt.disableProperty().addListener(e -> imgTxt.setOpacity(imgTxt.isDisabled() ? 0.5 : 1.0));
+        soundTxt.disableProperty().addListener(e -> soundTxt.setOpacity(soundTxt.isDisabled() ? 0.5 : 1.0));
+        connectTxt.disableProperty().addListener(e -> connectTxt.setOpacity(connectTxt.isDisabled() ? 0.5 : 1.0));
 
-            Node n = (Text) e;
-            n.setOpacity(n.isDisabled() ? 0.5 : 1.0);
-        });
-
-        imgTxt.disableProperty().addListener(il);
-        soundTxt.disableProperty().addListener(il);
-        imgTxt.disableProperty().addListener(il);
+        mediaImg.disableProperty().addListener(e -> mediaImg.setOpacity(mediaImg.isDisabled() ? 0.5 : 1.0));
+        soundImg.disableProperty().addListener(e -> soundImg.setOpacity(soundImg.isDisabled() ? 0.5 : 1.0));
+        connectImg.disableProperty().addListener(e -> connectImg.setOpacity(connectImg.isDisabled() ? 0.5 : 1.0));
 
         // Toggle message notification
         soundImg.setOnMouseClicked(e -> {
@@ -257,7 +254,39 @@ public class Controller implements Initializable {
 
         // Send media to server
         mediaImg.setOnMouseClicked(e -> {
+            FileChooser fileChooser = new FileChooser();
 
+            //Set extension filter
+            FileChooser.ExtensionFilter extFilterJPG = new FileChooser.ExtensionFilter("JPG files (*.jpg)", "*.JPG");
+            FileChooser.ExtensionFilter extFilterPNG = new FileChooser.ExtensionFilter("PNG files (*.png)", "*.PNG");
+            fileChooser.getExtensionFilters().addAll(extFilterJPG, extFilterPNG);
+
+            //Show open file dialog
+            File file = fileChooser.showOpenDialog(null);
+
+            if (file == null) {
+                System.out.print("Failed to get selected image.");
+                return;
+            }
+
+            Color color = colorPicker.getValue();
+            String userColor = color.getRed() + "," + color.getGreen() + "," + color.getBlue() + "," + color.getOpacity();
+            String data = "MEDIA:" + userColor + ";" + app.username;
+
+            System.out.println("Queued media for transfer.");
+
+            if (app.server != null && app.server.started) {
+                //TODO
+            } else {
+                app.client.imgToSend = file;
+                app.client.dataToSend.add(data);
+            }
         });
+    }
+
+    public static Optional<String> getExtension(String filename) {
+        return Optional.ofNullable(filename)
+                .filter(f -> f.contains("."))
+                .map(f -> f.substring(filename.lastIndexOf(".") + 1));
     }
 }

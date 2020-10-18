@@ -64,6 +64,15 @@ public class SSLChat extends Application {
         stage.setOnHidden(e -> {
             if (client != null)
                 client.disconnecting = true;
+
+            if (server!= null) {
+                server.disconnecting = true;
+
+                ArrayList<String> toInform = (ArrayList<String>) server.connectedClients.clone();
+                toInform.remove(username);
+
+                server.dataToSend.put("SHUTDOWN:Server", toInform);
+            }
         });
     }
 

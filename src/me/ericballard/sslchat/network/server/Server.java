@@ -23,6 +23,8 @@ public class Server extends Thread {
 
     String address, port;
 
+    public boolean disconnecting;
+
     // Connected users to server
     public ArrayList<String> connectedClients = new ArrayList<>();
 
