@@ -14,7 +14,7 @@ _A lightweight and secure chat application - bountiful in both form and function
 - **Message** Type desired messages and send local jpg and png files to chat
 - **Server** Host your server on any port or Join a server at any ip/port combination
 
-### Testng ####
+### Simulation Testing ####
 ![Test](sslchattest.gif)
 
 *NOTE:*
