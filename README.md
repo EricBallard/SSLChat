@@ -15,9 +15,9 @@ _A lightweight and secure chat application - bountiful in both form and function
 - **Server** Host your server on any port or Join a server at any ip/port combination
 
 ### Testng ####
-![GCP](https://i.imgur.com/RejUl4P.png)
+![Test](sslchattest.gif)
 
 *NOTE:*
 _Unable to extensively stress due to GCP quota restriction while using trial credits_
 
-![Test](sslchattest.gif)
+![GCP](https://i.imgur.com/RejUl4P.png)
