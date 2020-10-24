@@ -4,8 +4,9 @@ _A lightweight and secure chat application - bountiful in both form and function
 ### Features ###
 - Secured by SSL - Host and/or Join a chat server in a standalone portable application
 - Configure custom username, name-color, and messages
+- Toggable alert sound when receiving a new message
 - Displays other users who are typing on server
-- Informs number of connected users to server
+- Informs number of connected users
 - It's a circle
 
 ### Configurability ###
