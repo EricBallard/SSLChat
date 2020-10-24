@@ -2,6 +2,7 @@ package me.ericballard.sslchat.network.server;
 
 import javafx.application.Platform;
 import me.ericballard.sslchat.SSLChat;
+import me.ericballard.sslchat.network.Keystore;
 
 import javax.net.ServerSocketFactory;
 import javax.net.ssl.SSLServerSocket;
@@ -21,7 +22,7 @@ public class Server extends Thread {
     SSLSocket socket;
     SSLServerSocket serverSocket;
 
-    String address, port;
+    String port;
 
     public boolean disconnecting;
 
@@ -31,9 +32,10 @@ public class Server extends Thread {
     // Data - Clients to send to
     public HashMap<String, ArrayList<String>> dataToSend = new HashMap<>();
 
-    public Server(SSLChat app, String address, String port) {
+    public ArrayList<ClientHandler> clientHandlers = new ArrayList<>();
+
+    public Server(SSLChat app, String port) {
         this.app = app;
-        this.address = address;
         this.port = port;
     }
 
@@ -42,7 +44,7 @@ public class Server extends Thread {
         started = true;
         connectedClients.add(app.username);
 
-        System.out.println("Opened Secured Server on port 25565 | " + app.username);
+        System.out.println("Opened Secured Server on port " + port + " | " + app.username);
         Platform.runLater(() -> app.controller.onlineTxt.setText(String.valueOf(connectedClients.size())));
 
         while (!isInterrupted()) {
@@ -52,7 +54,11 @@ public class Server extends Thread {
                     continue;
 
                 // Handle new client
-                new ClientHandler(this, socket).start();
+                ClientHandler handler = new ClientHandler(this, socket);
+                handler.start();
+
+                // Cached handler to update media queue
+                clientHandlers.add(handler);
             } catch (Exception e) {
                 if (!started)
                     break;
@@ -91,13 +97,8 @@ public class Server extends Thread {
 
     public void initialize() {
         try {
-            // Generating a keystore
-            //https://docs.oracle.com/cd/E19509-01/820-3503/6nf1il6er/index.html
-
-            // Direct system to keystore
-            // (https://docs.oracle.com/cd/E29585_01/PlatformServices.61x/security/src/csec_ssl_jsp_start_server.html)
-            System.setProperty("javax.net.ssl.keyStore", "C:\\Users\\Home\\sslchatstore.store");
-            System.setProperty("javax.net.ssl.keyStorePassword", "password");
+            if (!Keystore.initialize())
+                throw new IOException("Failed to initialize KeyStore!");
 
             // Create SSL server socket
             ServerSocketFactory ssf = SSLServerSocketFactory.getDefault();
@@ -105,7 +106,7 @@ public class Server extends Thread {
 
             // Configure socket
             //serverSocket.setReuseAddress(true);
-            serverSocket.bind(new InetSocketAddress(25565));
+            serverSocket.bind(new InetSocketAddress(Integer.parseInt(port)));
 
             // Start thread for server
             start();

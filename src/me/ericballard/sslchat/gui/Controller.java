@@ -19,6 +19,7 @@ import javafx.stage.Stage;
 import me.ericballard.sslchat.SSLChat;
 
 import java.io.File;
+import java.io.InputStream;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.Optional;
@@ -42,7 +43,8 @@ public class Controller implements Initializable {
     @FXML // Displays # of online users in connected server
     public Text onlineTxt, imgTxt, soundTxt, connectTxt;
 
-    @FXML // User-name color
+    @FXML
+    public // User-name color
     ColorPicker colorPicker;
 
     @FXML // Inform user # of typing clients
@@ -202,7 +204,7 @@ public class Controller implements Initializable {
 
             Color color = colorPicker.getValue();
             String userColor = color.getRed() + "," + color.getGreen() + "," + color.getBlue() + "," + color.getOpacity();
-            String data = userColor + ";" + app.username + ";" + msg;
+            String data = "MESSAGE:" + userColor + ";" + app.username + ";" + msg;
 
             // User is sending new message
             textArea.setText(null);
@@ -213,12 +215,12 @@ public class Controller implements Initializable {
                 ArrayList<String> clientsToInform = (ArrayList<String>) app.server.connectedClients.clone();
                 clientsToInform.remove(app.username);
 
-                app.server.dataToSend.put("MESSAGE:" + data, clientsToInform);
+                app.server.dataToSend.put(data, clientsToInform);
 
                 // Add msg to local client
                 app.addMessage(userColor, app.username, msg, false);
             } else {
-                app.client.dataToSend.add("MESSAGE:" + data);
+                app.client.dataToSend.add(data);
             }
         });
 
@@ -239,10 +241,12 @@ public class Controller implements Initializable {
         soundImg.setOnMouseClicked(e -> {
             if (app.muted = (!app.muted)) {
                 // Muted
-                soundImg.setImage(new Image(new File("src/me/ericballard/sslchat/gui/resources/images/mute.png").toURI().toString()));
+                InputStream is = SSLChat.class.getResourceAsStream("/me/ericballard/sslchat/gui/resources/images/mute.png");
+                soundImg.setImage(new Image(is));
             } else {
                 // Un-muted
-                soundImg.setImage(new Image(new File("src/me/ericballard/sslchat/gui/resources/images/sound.png").toURI().toString()));
+                InputStream is = SSLChat.class.getResourceAsStream("/me/ericballard/sslchat/gui/resources/images/sound.png");
+                soundImg.setImage(new Image(is));
             }
         });
 
@@ -267,19 +271,33 @@ public class Controller implements Initializable {
             if (file == null) {
                 System.out.print("Failed to get selected image.");
                 return;
+            } else {
+                long bytes = file.length();
+
+                if (((bytes / 1024) / 1024) > 5) {
+                    // Restrict images > 5mb in size
+                    app.alerts.inform("UNABLE TO SEND MEDIA", "Images over 5MB have too much baggage, that's not cool.");
+                    return;
+                }
             }
 
             Color color = colorPicker.getValue();
             String userColor = color.getRed() + "," + color.getGreen() + "," + color.getBlue() + "," + color.getOpacity();
-            String data = "MEDIA:" + userColor + ";" + app.username;
-
-            System.out.println("Queued media for transfer.");
+            String data = userColor + ";" + app.username;
 
             if (app.server != null && app.server.started) {
-                //TODO
+                // Add to local client
+                app.addMedia(file, data);
+
+                // Send data and populate other client's media queue
+                ArrayList<String> clientsToInform = (ArrayList<String>) app.server.connectedClients.clone();
+                clientsToInform.remove(app.username);
+
+                app.server.clientHandlers.forEach(client -> client.mediaQueue.add(file));
+                app.server.dataToSend.put("MEDIA:" + data, clientsToInform);
             } else {
                 app.client.imgToSend = file;
-                app.client.dataToSend.add(data);
+                app.client.dataToSend.add("MEDIA:" + data);
             }
         });
     }

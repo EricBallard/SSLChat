@@ -1,68 +1,96 @@
 package me.ericballard.sslchat.network;
 
+import javafx.util.Pair;
+
 import javax.net.ssl.SSLSocket;
 import javax.swing.*;
 import java.io.*;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 
 public class Media {
 
-    static final String path = new JFileChooser().getFileSystemView().getDefaultDirectory().toString() + File.separator + "SSLChat" + File.separator;
+    public static final String path = new JFileChooser().getFileSystemView().getDefaultDirectory().toString() + File.separator + "SSLChat" + File.separator;
 
-    public static File receive(SSLSocket socket) throws IOException {
-        InputStream in = socket.getInputStream();
-        BufferedInputStream bis = new BufferedInputStream(in);
-        DataInputStream dis = new DataInputStream(bis);
+    public static File receive(SSLSocket socket, BufferedReader reader) {
+        try {
+            // Receive # of byte in file
+            int fileLength = (int) Long.parseLong(reader.readLine());
 
-        // Receive # of byte in file
-        long fileLength = dis.readLong();
+            // Receive file name
+            String fileName = reader.readLine();
 
-        // Receive file name
-        String fileName = dis.readUTF();
+            // Write bytes to file
+            byte[] bytes;
 
-        System.out.println("FILE INFO (" + fileName + " | " + (fileLength / 1000) + "kb)");
+            File file = new File(path + fileName);
 
-        // Write bytes to file
-        File folder = new File(path);
+            // Read bytes from stream
+            ObjectInputStream ois = new ObjectInputStream(new BufferedInputStream(socket.getInputStream()));
+            bytes = (byte[]) ois.readObject();
 
-        if (!folder.exists())
-            folder.mkdirs();
+            //Verify
+            boolean corrupt = fileLength != bytes.length;
+            System.out.println("Received file '" + file.getName() + "' - Corrupt: " + corrupt + " | Read Byte: " + bytes.length + "/" + fileLength + ")");
 
-        File file = new File(path + fileName);
-        FileOutputStream fos = new FileOutputStream(file);
-        BufferedOutputStream bos = new BufferedOutputStream(fos);
+            if (corrupt) {
+                file.delete();
+                return null;
+            }
 
-        for (int curByte = 0; curByte < fileLength; curByte++) {
-            bos.write(bis.read());
+            return Files.write(Paths.get(file.getPath()), bytes).toFile();
+        } catch (IOException | ClassNotFoundException e) {
+            e.printStackTrace();
         }
-
-        bos.close();
-        return file;
+        return null;
     }
 
-    public static void send(SSLSocket socket, File file) throws IOException {
-        OutputStream os = socket.getOutputStream();
-        BufferedOutputStream bos = new BufferedOutputStream(os);
-        DataOutputStream dos = new DataOutputStream(bos);
+    public static void send(SSLSocket socket, PrintWriter writer, File file) {
+        try {
+            // Send server size of file
+            int length = (int) file.length();
+            writer.println(length);
 
-        // Send server size of file
-        long length = file.length();
-        dos.writeLong(length);
+            // Send server name of file
+            String name = file.getName();
+            writer.println(name);
 
-        // Send server name of file
-        String name = file.getName();
-        dos.writeUTF(name);
+            System.out.println("Sending media: " + name + " | " + length + " bytes)");
 
-        // Send file
-        FileInputStream fis = new FileInputStream(file);
-        BufferedInputStream bis = new BufferedInputStream(fis);
+            // Convert file to byte[]
+            byte[] bytes = new byte[length];
+            BufferedInputStream bis = new BufferedInputStream(new FileInputStream(file));
+            bis.read(bytes, 0, bytes.length);
 
-        int curByte = 0;
-        while ((curByte = bis.read()) != -1) {
-            bos.write(curByte);
+            // Write bytes to stream
+            ObjectOutputStream oos = new ObjectOutputStream(
+                    new BufferedOutputStream(socket.getOutputStream()));
+
+            oos.writeObject(bytes);
+            oos.flush();
+        } catch (IOException e) {
+            e.printStackTrace();
         }
-
-        bis.close();
-        dos.close();
     }
 
+    // Resize image w/h to be < 150px - by ratio
+    public static Pair<Double, Double> resize(double width, double height) {
+        if (width > 150 || height > 150) {
+            for (double multiplier = 0.1; multiplier < 1.0; multiplier += 0.1) {
+                double w = width - (width * multiplier);
+                double h = height - (height * multiplier);
+
+                if (w < 150 && h < 150) {
+                    System.out.println("Media size reduced by " + multiplier + "%");
+
+                    if (multiplier >= 0.99)
+                        return new Pair(150D, 150D);
+                    else
+                        return new Pair<>(w, h);
+                }
+            }
+        }
+
+        return new Pair<>(width, height);
+    }
 }

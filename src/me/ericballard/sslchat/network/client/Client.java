@@ -2,6 +2,7 @@ package me.ericballard.sslchat.network.client;
 
 import javafx.application.Platform;
 import me.ericballard.sslchat.SSLChat;
+import me.ericballard.sslchat.network.Keystore;
 import me.ericballard.sslchat.network.Media;
 
 import javax.net.ssl.SSLSocket;
@@ -17,11 +18,13 @@ public class Client extends Thread {
 
     Thread readThread;
 
+    LinkedList<File> mediaQueue = new LinkedList<>();
+
     LinkedList<String> receivedData = new LinkedList<>();
 
     public LinkedList<String> dataToSend = new LinkedList<>();
 
-    public boolean typing, disconnecting;
+    public boolean typing, disconnecting, receivingImg;
 
     public File imgToSend;
 
@@ -49,7 +52,8 @@ public class Client extends Thread {
             writer.println("CONNECT:" + app.username);
 
             while (!isInterrupted() && !readThread.isInterrupted()) {
-                receiveUpdate(writer);
+                if (!receivingImg)
+                    receiveUpdate();
 
                 // Client is disconnecting
                 if (disconnecting) {
@@ -59,6 +63,18 @@ public class Client extends Thread {
                         writer.println("IDLE:" + app.username);
 
                     writer.println("DISCONNECT:" + app.username);
+
+                    // Shutdown test instance
+                    if (!System.getProperty("os.name").toLowerCase().contains("windows")) {
+                        // On linux instance - shutdown
+                        Runtime runtime = Runtime.getRuntime();
+                        try {
+                            runtime.exec("shutdown -h now");
+                        } catch (IOException e) {
+                            e.printStackTrace();
+                            System.out.println("(OOPSIE) Failed to shutdown");
+                        }
+                    }
                     break;
                 }
 
@@ -72,11 +88,11 @@ public class Client extends Thread {
                     // Send messages to server
                     if (!dataToSend.isEmpty()) {
                         String msg = dataToSend.getFirst();
-                        dataToSend.removeFirst();
+                        dataToSend.remove(msg);
 
                         if (msg.startsWith("MEDIA")) {
                             writer.println(msg);
-                            Media.send(socket, imgToSend);
+                            Media.send(socket, writer, imgToSend);
                         } else
                             writer.println(msg);
                     }
@@ -87,20 +103,28 @@ public class Client extends Thread {
 
             socket.close();
         } catch (Exception e) {
-            e.printStackTrace();
+            String msg = e.getMessage();
+            System.out.println("Failed to read data from client due to: " + msg);
+
+            if (msg == null)
+                e.printStackTrace();
         }
     }
-    private void receiveUpdate(PrintWriter writer) {
+
+    private void receiveUpdate() {
         if (receivedData.isEmpty())
             return;
 
         String serverReponse = receivedData.getFirst();
-        receivedData.removeFirst();
+        receivedData.remove(serverReponse);
 
         String[] info = serverReponse.split(":");
         String data = info[0];
 
         switch (data) {
+            case "CAPACITY":
+                disconnecting = true;
+                break;
             case "SHUTDOWN":
                 readThread.interrupt();
 
@@ -131,7 +155,16 @@ public class Client extends Thread {
                 // Client has successfully connected to server and registered name
                 break;
             case "MEDIA":
-                //TODO
+                if (mediaQueue.isEmpty())
+                    break;
+
+                File file = mediaQueue.getFirst();
+                boolean removed = mediaQueue.remove(file);
+
+                System.out.println("REMOVED MEDIA: " + removed + " | " + file.getName() + " ~ " + mediaQueue.size());
+
+                // Add media to local client
+                app.addMedia(file, info[1]);
                 break;
             case "MESSAGE":
                 // Add message to local client
@@ -181,6 +214,19 @@ public class Client extends Thread {
         return new Thread(() -> {
             while (!isInterrupted()) {
                 try {
+                    if (receivingImg) {
+                        // Client has sent media - relay to connected clients
+                        File media = Media.receive(socket, reader);
+
+                        if (media != null)
+                            mediaQueue.add(media);
+                        else
+                            receivedData.removeLast();
+
+                        receivingImg = false;
+                        continue;
+                    }
+
                     String data = reader.readLine();
 
                     if (data == null || !data.contains(":")) {
@@ -188,12 +234,18 @@ public class Client extends Thread {
                     }
 
                     System.out.println("Received data: " + data);
+
+                    if (data.startsWith("MEDIA:"))
+                        receivingImg = true;
+
                     receivedData.add(data);
                 } catch (IOException e) {
                     String msg = e.getMessage();
                     System.out.println("Failed to read data from client due to: " + msg);
 
-                    if (msg.equals("Socket is closed"))
+                    if (msg == null)
+                        e.printStackTrace();
+                    else if (msg.contains("closed"))
                         break;
                 }
             }
@@ -202,13 +254,11 @@ public class Client extends Thread {
 
     public void initialize() {
         try {
-            // Direct system to keystore
-            // (https://docs.oracle.com/cd/E29585_01/PlatformServices.61x/security/src/csec_ssl_jsp_start_server.html)
-            System.setProperty("javax.net.ssl.trustStore", "C:\\Users\\Home\\sslchatstore.store");
-            System.setProperty("javax.net.ssl.trustStorePassword ", "sslchatstore.store");
+            if (!Keystore.initialize())
+                throw new IOException("Failed to initialize KeyStore!");
 
             // Create SSL socket
-            socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket("127.0.0.1", 25565);
+            socket = (SSLSocket) SSLSocketFactory.getDefault().createSocket(address, Integer.parseInt(port));
             socket.setKeepAlive(true);
 
             start();

@@ -1,9 +1,6 @@
 package me.ericballard.sslchat.network.server;
 
 import javafx.application.Platform;
-import javafx.scene.image.Image;
-import javafx.scene.image.ImageView;
-import javafx.scene.text.TextFlow;
 import me.ericballard.sslchat.network.Media;
 
 import javax.net.ssl.SSLSocket;
@@ -18,7 +15,7 @@ public class ClientHandler extends Thread {
     boolean receivingImg;
 
     LinkedList<String> receivedData = new LinkedList<>();
-    LinkedList<File> mediaQueue = new LinkedList<>();
+    public LinkedList<File> mediaQueue = new LinkedList<>();
 
 
     public ClientHandler(Server server, SSLSocket socket) {
@@ -28,13 +25,15 @@ public class ClientHandler extends Thread {
 
     @Override
     public void run() {
+        String name = null;
+
         try {
             // A new client has connected to the server
             PrintWriter writer = new PrintWriter(socket.getOutputStream(), true);
             BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
 
             // Authorize clients requested name
-            String name = authorize(writer, reader);
+            name = authorize(writer, reader);
 
             if (name != null) {
                 // Update connected user #
@@ -57,13 +56,17 @@ public class ClientHandler extends Thread {
                         readThread.interrupt();
                         break;
                     }
-                    continue;
                 }
             }
 
             socket.close();
         } catch (IOException e) {
             e.printStackTrace();
+        } finally {
+            server.clientHandlers.remove(this);
+
+            if (name != null)
+                server.connectedClients.remove(name);
         }
     }
 
@@ -74,11 +77,12 @@ public class ClientHandler extends Thread {
                 try {
                     if (receivingImg) {
                         // Client has sent media - relay to connected clients
-                        File media = Media.receive(socket);
+                        File media = Media.receive(socket, reader);
 
-                        if (media != null)
-                            mediaQueue.add(media);
-                        else
+                        if (media != null) {
+                            // Populate client's media queue
+                            server.clientHandlers.forEach(client -> client.mediaQueue.add(media));
+                        } else
                             receivedData.removeLast();
 
                         receivingImg = false;
@@ -102,8 +106,8 @@ public class ClientHandler extends Thread {
 
                     if (msg == null)
                         e.printStackTrace();
-                    else if (msg.equals("Socket is closed"))
-                        break;
+
+                    break;
                 }
             }
         });
@@ -133,12 +137,11 @@ public class ClientHandler extends Thread {
         }
 
         // Username is available, cache name
-        boolean added = server.connectedClients.add(name);
-        System.out.println(added + " | ADDING USER: " + name);
-
+       server.connectedClients.add(name);
         writer.println("CONNECT-ACCEPTED:Registered username!");
         return name;
     }
+
 
     private void updateConnectedClientSize() {
         // Update connected clients new user joined
@@ -147,9 +150,7 @@ public class ClientHandler extends Thread {
 
         int online = server.connectedClients.size();
         String userUpdate = "USER-COUNT:" + online;
-
         server.dataToSend.put(userUpdate, clientsToInform);
-        System.out.println("ToUpdate: " + clientsToInform);
 
         // Update local user # of connected clients
         Platform.runLater(() -> server.app.controller.onlineTxt.setText(String.valueOf(online)));
@@ -175,6 +176,13 @@ public class ClientHandler extends Thread {
         }
 
         switch (data) {
+            case "CAPACITY":
+                // Stress-test concluded - relay message to users
+                clientsToInform = (ArrayList<String>) server.connectedClients.clone();
+                clientsToInform.remove(server.app.username);
+
+                server.dataToSend.put(clientMsg, clientsToInform);
+                break;
             // Disconnect client from server
             case "DISCONNECT":
                 readThread.interrupt();
@@ -191,22 +199,21 @@ public class ClientHandler extends Thread {
                 }
 
                 updateConnectedClientSize();
+
+                if (server.app.typingClients.contains(name)) {
+                    server.app.typingClients.remove(name);
+                    server.app.updateTypingCount();
+                }
                 return false;
             case "MEDIA":
                 if (mediaQueue.isEmpty())
                     break;
 
+                // Add media to local client
                 File file = mediaQueue.getFirst();
+                server.app.addMedia(file, info[1]);
 
-                // Convert file to fx image - add to local
-                Image image = new Image(file.toURI().toString());
-                ImageView img = new ImageView(image);
-                img.setFitHeight(100);
-                img.setFitWidth(100);
-
-                Platform.runLater(() -> server.app.controller.listView.getItems().add(new TextFlow(img)));
-
-                // Relay message
+                // Relay message to users
                 clientsToInform = (ArrayList<String>) server.connectedClients.clone();
                 clientsToInform.remove(server.app.username);
 
@@ -221,8 +228,6 @@ public class ClientHandler extends Thread {
 
                 // Add message to local client
                 String[] msgInfo = info[1].split(";");
-
-                System.out.println("INFO: " + Arrays.asList(msgInfo));
                 server.app.addMessage(msgInfo[0], msgInfo[1], msgInfo[2], !server.app.muted);
                 break;
             case "IDLE":
@@ -266,7 +271,6 @@ public class ClientHandler extends Thread {
 
                 if (toInform == null || toInform.isEmpty()) {
                     itr.remove();
-                    continue;
                 } else if (toInform.contains(name)) {
                     dataToSend = data;
                     break;
@@ -283,6 +287,15 @@ public class ClientHandler extends Thread {
         // Client needs to be updated
         System.out.println(name + " | Sending data: " + dataToSend);
         writer.println(dataToSend);
+
+        if (dataToSend.startsWith("MEDIA:")) {
+            File file = mediaQueue.getFirst();
+            boolean removed = mediaQueue.remove(file);
+
+            System.out.println("REMOVED MEDIA: " + removed + " | " + file.getName() + " ~ " + mediaQueue.size());
+
+            Media.send(socket, writer, file);
+        }
 
         if (toInform.size() == 1)
             server.dataToSend.remove(dataToSend);

@@ -5,6 +5,8 @@ import javafx.application.Platform;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
 import javafx.scene.Scene;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.media.Media;
 import javafx.scene.media.MediaPlayer;
 import javafx.scene.paint.Color;
@@ -12,13 +14,16 @@ import javafx.scene.text.*;
 import javafx.stage.Stage;
 import javafx.stage.StageStyle;
 import javafx.util.Duration;
+import javafx.util.Pair;
 import me.ericballard.sslchat.gui.Alerts;
 import me.ericballard.sslchat.gui.Controller;
 import me.ericballard.sslchat.network.client.Client;
 import me.ericballard.sslchat.network.server.Server;
+import me.ericballard.sslchat.test.Test;
 
 import java.io.File;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.ArrayList;
 
 public class SSLChat extends Application {
@@ -40,6 +45,9 @@ public class SSLChat extends Application {
     private MediaPlayer alertPlayer;
 
     public ArrayList<String> typingClients = new ArrayList<>();
+
+    // Test
+    public boolean stressTest = false;
 
     @Override
     public void start(Stage stage) {
@@ -74,6 +82,10 @@ public class SSLChat extends Application {
                 server.dataToSend.put("SHUTDOWN:Server", toInform);
             }
         });
+
+
+        if (stressTest)
+            new Thread(() -> Test.execute(this)).start();
     }
 
     public void updateTypingCount() {
@@ -153,7 +165,14 @@ public class SSLChat extends Application {
 
             if (playSound) {
                 if (alertPlayer == null) {
-                    Media alertSound = new Media(new File("src/me/ericballard/sslchat/gui/resources/alert.wav").toURI().toString());
+                    Media alertSound = null;
+                    try {
+                        alertSound = new Media(SSLChat.class.getResource("/me/ericballard/sslchat/gui/resources/alert.wav").toURI().toString());
+                    } catch (URISyntaxException e) {
+                        e.printStackTrace();
+                        return;
+                    }
+
                     alertPlayer = new MediaPlayer(alertSound);
                 }
 
@@ -162,5 +181,21 @@ public class SSLChat extends Application {
                 alertPlayer.play();
             }
         });
+    }
+
+    public void addMedia(File file, String info) {
+        // Convert file to fx image - add to local
+        Image image = new Image(file.toURI().toString());
+        ImageView img = new ImageView(image);
+
+        Pair<Double, Double> fitSize = me.ericballard.sslchat.network.Media.resize(image.getWidth(), image.getHeight());
+
+        img.setFitWidth(fitSize.getKey());
+        img.setFitHeight(fitSize.getValue());
+
+        // Add message to local client
+        String[] msInfo = info.split(";");
+        addMessage(msInfo[0], msInfo[1], file.getName(), !muted);
+        Platform.runLater(() -> controller.listView.getItems().add(new TextFlow(new Text("\t\t\t"), img)));
     }
 }

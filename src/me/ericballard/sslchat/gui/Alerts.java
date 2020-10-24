@@ -90,7 +90,7 @@ public class Alerts {
                     //TODO check if connected to server/client (client!=null)
                     // disconnect and than set obj to null
 
-                    (app.server = new Server(app, address, port)).initialize();
+                    (app.server = new Server(app, port)).initialize();
                 } else {
                     (app.client = new Client(app, address, port)).initialize();
                 }
